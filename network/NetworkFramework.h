@@ -51,6 +51,7 @@ namespace Network
 			void PushTargetFloat(float_n* data);
 
 			void ForwardTransmit();
+			void ForwardTransmit(NeuronLayerInstance& inLayer, NeuronLayerInstance& outLayer, std::vector<NeuronLayerInstance>& hiddenLayers);
 
 			void BackwardTransmit();
 
@@ -80,6 +81,37 @@ namespace Network
 
 			void TrainBatched(NetworkDataSet& dataset, int batchSize, float_n learningRate, std::function<void(int, int)> callback = [](int, int) {});
 			void TrainBatched(std::vector<ImageDataset*>& dataset, int batchSize, float_n learningRate, std::function<void(int, int)> callback = [](int, int) {});
+		};
+
+		class FullConnNetworkInstance
+		{
+		public:
+			// variables
+
+			FullConnNetwork* source;
+
+			NeuronLayerInstance inLayer;
+			NeuronLayerInstance outLayer;
+			std::vector<NeuronLayerInstance> hiddenLayerList;
+
+			float_n* target;
+
+			FullConnNetworkInstance(FullConnNetwork* src);
+			
+			// Data Management
+
+			void PushData(float_n* data);
+			void PushTarget(float_n* target);
+			void FreeData();
+
+			// Transmission
+
+			void ForwardTransmit();
+			void BackwardTransmit();
+			void FeedBack();
+			void FetchBias();
+
+			float_n GetLoss();
 		};
 	}
 }

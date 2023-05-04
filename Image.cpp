@@ -72,7 +72,7 @@ void YUVImage::SavePNG(std::string path)
 	delete[] data;
 }
 
-void YUVImage::Free()
+void YUVImage::FreeData()
 {
 	delete[] y;
 	delete[] u;
@@ -114,6 +114,12 @@ ImageLayer::ImageLayer(YUVImage& image, Channels channel)
 constexpr float& ImageLayer::Get(int x, int y)
 {
 	return data[y * width + x];
+}
+
+void ImageLayer::FreeData()
+{
+	if(data)
+		delete[] data;
 }
 
 ImageDataset::ImageDataset(ImageLayer& imageLayer, int x_in, int y_in, int size)

@@ -46,6 +46,7 @@ namespace Network
 		float_n bias;
 
 		NeuronLayerInstance(NeuronLayer* source);
+		NeuronLayerInstance() :value(nullptr), source(nullptr), error(nullptr), prevCount(0), neuronCount(0), bias(0) {}
 
 		void FeedBack();
 

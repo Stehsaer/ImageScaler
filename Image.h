@@ -64,7 +64,7 @@ public:
 	void Load(std::string path);
 	void SavePNG(std::string path);
 
-	void Free();
+	void FreeData();
 
 	inline int GetOffset(int x, int y)
 	{
@@ -87,6 +87,7 @@ public:
 	ImageLayer(YUVImage& image, Channels channel);
 
 	constexpr float& Get(int x, int y);
+	void FreeData();
 };
 
 struct ImageDataset
@@ -122,7 +123,7 @@ inline void GenDataset(std::vector<ImageDataset*>& datasets, std::string path, i
 		datasets.push_back(new ImageDataset(layer, distX(gen), distY(gen), coreSize));
 	}
 	delete[] layer.data;
-	image.Free();
+	image.FreeData();
 }
 
 extern const float shift;

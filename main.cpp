@@ -6,6 +6,8 @@
 #include "network/Network.h"
 
 #include "Image.h"
+#include "network/ProgressTimer.h"
+#include <omp.h>
 
 Network::Connectivity::FullConnNetwork* networkPtr = nullptr;
 std::vector<ImageDataset*> datasets;
@@ -22,8 +24,8 @@ void DisplayProgress(float progress)
 		else
 			out += " ";
 	}
-	out += std::format("] {:3}%\r", (int)(progress * 100));
-	std::cout << out;
+	out += std::format("] {:5.1f}%\r", progress * 100);
+	std::cerr << out;
 }
 
 void Train()
@@ -71,25 +73,48 @@ void Train()
 			network.BackwardTransmit();
 			network.UpdateWeights();
 
-			if ((i+1) % displayInterval == 0)
+			if ((i + 1) % displayInterval == 0)
 			{
 				std::cout << "Completed:" << (i + 1) << " Loss:" << loss / displayInterval << std::endl;
 				loss = 0.0;
 			}
 		}
 
-		double totalLoss = 0.0;
+		std::atomic<double> totalLoss = 0.0;
 
 		std::cout << "Calculating avg loss..." << std::endl;
+
+		std::vector<Network::Connectivity::FullConnNetworkInstance*> instances;
+		for (int i = 0; i < omp_get_max_threads(); i++)
+			instances.push_back(new Network::Connectivity::FullConnNetworkInstance(networkPtr));
+
+#pragma omp parallel for
 		for (int i = 0; i < datasets.size(); i++)
 		{
-			auto& data = datasets[i];
+			/*auto& data = datasets[i];
 
 			network.PushDataFloat(data->sdData);
 			network.PushTargetFloat(data->hdData);
 
 			network.ForwardTransmit();
-			totalLoss += network.GetLoss();
+			totalLoss += network.GetLoss();*/
+
+			auto& instance = *instances[omp_get_thread_num()];
+			instance.FetchBias();
+
+			auto& data = datasets[i];
+
+			instance.PushData(data->sdData);
+			instance.PushTarget(data->hdData);
+			instance.ForwardTransmit();
+
+			totalLoss += instance.GetLoss();
+		}
+
+		for (auto& item : instances)
+		{
+			item->FreeData();
+			delete item;
 		}
 
 		std::cout << "Avg Loss: " << totalLoss / datasets.size() << std::endl;
@@ -141,6 +166,8 @@ void Scale()
 	std::cout << "Reading source image..." << std::endl;
 	auto& network = *networkPtr;
 
+	ProgressTimer timer;
+
 	YUVImage srcImage(path);
 	ImageLayer yLayer(srcImage, Channels_Y);
 	ImageLayer uLayer(srcImage, Channels_U);
@@ -154,24 +181,41 @@ void Scale()
 	ImageLayer output_u(newWidth, newHeight);
 	ImageLayer output_v(newWidth, newHeight);
 
+	std::atomic<int> progress = 0;
+
+	std::vector<Network::Connectivity::FullConnNetworkInstance*> tempNetworks;
+
+	int threadCount = omp_get_max_threads();
+	for (int i = 0; i < threadCount; i++)
+	{
+		tempNetworks.push_back(new Network::Connectivity::FullConnNetworkInstance(networkPtr));
+	}
+
+#pragma omp parallel for
 	for (int x = 0; x < newWidth; x += coreSize)
 	{
-		for (int y = 0; y < newHeight; y += coreSize)
+		using namespace Network;
+
+		int threadnum = omp_get_thread_num();
+
+		auto& nwk = *tempNetworks[threadnum];
+
+		for (int y = 0; y < output_y.height; y += coreSize)
 		{
 			// feed in data, Y
 			for (int _x = 0; _x < coreSize; _x++)
 				for (int _y = 0; _y < coreSize; _y++)
 				{
-					network.inLayer.value[_y * coreSize + _x] = yLayer.Get(x / 2 + _x, y / 2 + _y);
+					nwk.inLayer.value[_y * coreSize + _x] = yLayer.Get(x / 2 + _x, y / 2 + _y);
 				}
 
-			network.ForwardTransmit();
+			network.ForwardTransmit(nwk.inLayer, nwk.outLayer, nwk.hiddenLayerList);
 
 			for (int _x = 0; _x < coreSize; _x++)
 			{
 				for (int _y = 0; _y < coreSize; _y++)
 				{
-					output_y.Get(x + _x, y + _y) = network.outLayer.value[_y * coreSize + _x];
+					output_y.Get(x + _x, y + _y) = nwk.outLayer.value[_y * coreSize + _x];
 				}
 			}
 
@@ -179,16 +223,16 @@ void Scale()
 			for (int _x = 0; _x < coreSize; _x++)
 				for (int _y = 0; _y < coreSize; _y++)
 				{
-					network.inLayer.value[_y * coreSize + _x] = uLayer.Get(x / 2 + _x, y / 2 + _y) + 0.5;
+					nwk.inLayer.value[_y * coreSize + _x] = uLayer.Get(x / 2 + _x, y / 2 + _y) + 0.5;
 				}
 
-			network.ForwardTransmit();
+			network.ForwardTransmit(nwk.inLayer, nwk.outLayer, nwk.hiddenLayerList);
 
 			for (int _x = 0; _x < coreSize; _x++)
 			{
 				for (int _y = 0; _y < coreSize; _y++)
 				{
-					output_u.Get(x + _x, y + _y) = network.outLayer.value[_y * coreSize + _x] - 0.5;
+					output_u.Get(x + _x, y + _y) = nwk.outLayer.value[_y * coreSize + _x] - 0.5;
 				}
 			}
 
@@ -196,50 +240,53 @@ void Scale()
 			for (int _x = 0; _x < coreSize; _x++)
 				for (int _y = 0; _y < coreSize; _y++)
 				{
-					network.inLayer.value[_y * coreSize + _x] = vLayer.Get(x / 2 + _x, y / 2 + _y) + 0.5;
+					nwk.inLayer.value[_y * coreSize + _x] = vLayer.Get(x / 2 + _x, y / 2 + _y) + 0.5;
 				}
 
-			network.ForwardTransmit();
+			network.ForwardTransmit(nwk.inLayer, nwk.outLayer, nwk.hiddenLayerList);
 
 			for (int _x = 0; _x < coreSize; _x++)
 			{
 				for (int _y = 0; _y < coreSize; _y++)
 				{
-					output_v.Get(x + _x, y + _y) = network.outLayer.value[_y * coreSize + _x] - 0.5;
+					output_v.Get(x + _x, y + _y) = nwk.outLayer.value[_y * coreSize + _x] - 0.5;
 				}
 			}
 		}
 
-		DisplayProgress((float)x / (float)newWidth);
+		progress += coreSize;
+
+		if ((progress / coreSize) % 20 == 0)
+			DisplayProgress((float)progress / (float)newWidth);
+
+		//printf("x=%d, time=%dus\n", x, timer.CountAndReset() / 1000LL);
 	}
 
+	// clean up
+	for (auto& item : tempNetworks)
+	{
+		item->FreeData();
+		delete item;
+	}
+	yLayer.FreeData();
+	uLayer.FreeData();
+	vLayer.FreeData();
+	srcImage.FreeData();
+
+	auto ms = timer.CountMs();
+	std::cout << std::endl << std::format("Scaling Time: {}ms", ms) << std::endl;
+
+	// save image
 	YUVImage outputImage(newWidth, newHeight);
 
 	outputImage.y = output_y.data;
 	outputImage.u = output_u.data;
 	outputImage.v = output_v.data;
-	//outputImage.u = new float[newWidth * newHeight];
-	//outputImage.v = new float[newWidth * newHeight];
 
-	/*const int offset = 1;
-
-	std::cout << std::endl << "Interpolating U,V components..." << std::endl;
-	for (int x = 0; x < newWidth; x++)
-	{
-		for (int y = 0; y < newHeight; y++)
-		{
-			outputImage.u[y * newWidth + x] = srcImage.u[(y / 2 + offset) * srcImage.width + x / 2 + offset];
-			outputImage.v[y * newWidth + x] = srcImage.v[(y / 2 + offset) * srcImage.width + x / 2 + offset];
-		}
-
-		DisplayProgress((float)x / (float)newWidth);
-	}*/
-
-	std::cout << std::endl << "Saving image..." << std::endl;
+	std::cout << "Saving image..." << std::endl;
 	outputImage.SavePNG(outputPath);
 
-	outputImage.Free();
-	srcImage.Free();
+	outputImage.FreeData();
 
 	std::cout << "Done." << std::endl;
 }

@@ -169,6 +169,7 @@
     <ClInclude Include="network\NetworkStructure.h" />
     <ClInclude Include="network\ProcessState.h" />
     <ClInclude Include="network\ProgressTimer.h" />
+    <ClInclude Include="network\VectorAccelator.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />

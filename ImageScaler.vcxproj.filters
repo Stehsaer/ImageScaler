@@ -80,6 +80,9 @@
     <ClInclude Include="network\FileHelper.h">
       <Filter>Network</Filter>
     </ClInclude>
+    <ClInclude Include="network\VectorAccelator.h">
+      <Filter>Network</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore">
