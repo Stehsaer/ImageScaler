@@ -1,17 +1,23 @@
 ﻿#include <iostream>
-
 #include<filesystem>
 #include<random>
+#include <omp.h>
+#include <assert.h>
 
 #include "network/Network.h"
-
 #include "Image.h"
 #include "network/ProgressTimer.h"
-#include <omp.h>
 
 Network::Connectivity::FullConnNetwork* networkPtr = nullptr;
 std::vector<ImageDataset*> datasets;
 const int coreSize = 8;
+
+void PrintValues(float* value, int count)
+{
+	for (int i = 0; i < count; i++)
+		printf("[%f]", value[i]);
+	printf("\n");
+}
 
 void DisplayProgress(float progress)
 {
@@ -37,20 +43,20 @@ void Train()
 	}
 
 	float learningRate;
-	int repeat;
+	int repeat, batchSize;
 
 	std::cout << "Learning Rate> ";
 	std::cin >> learningRate;
 	std::cout << "Repeat> ";
 	std::cin >> repeat;
+	std::cout << "Batch Size> ";
+	std::cin >> batchSize;
 
-	std::cout << "Working... Learning rate: " << learningRate << std::endl;
+	std::cout << "Working..." << std::endl;
 
 	auto& network = *networkPtr;
 
 	network.learningRate = learningRate;
-
-	const int displayInterval = 2000;
 
 	for (int iter = 0; iter < repeat; iter++)
 	{
@@ -58,31 +64,56 @@ void Train()
 
 		std::shuffle(datasets.begin(), datasets.end(), std::mt19937(std::random_device()()));
 
-		double loss = 0.0;
-
-		for (int i = 0; i < datasets.size(); i++)
+		if (batchSize == 1)
 		{
-			auto& data = datasets[i];
-
-			network.PushDataFloat(data->sdData);
-			network.PushTargetFloat(data->hdData);
-
-			loss += network.GetLoss();
-
-			network.ForwardTransmit();
-			network.BackwardTransmit();
-			network.UpdateWeights();
-
-			if ((i + 1) % displayInterval == 0)
+			for (int i = 0; i < datasets.size(); i++)
 			{
-				std::cout << "Completed:" << (i + 1) << " Loss:" << loss / displayInterval << std::endl;
-				loss = 0.0;
+				auto& data = datasets[i];
+
+				network.PushDataFloat(data->sdData);
+				network.PushTargetFloat(data->hdData);
+				network.ForwardTransmit();
+				network.BackwardTransmit();
+				network.UpdateWeights();
+
+				if(i % 500 == 0)
+					DisplayProgress((float)i / datasets.size());
 			}
+		}
+		else
+		{
+			Network::Connectivity::FullConnNetworkInstance instance(networkPtr);
+
+			for (int i = 0; i < datasets.size(); i++)
+			{
+				auto& data = datasets[i];
+
+				instance.FetchBias();
+				instance.PushData(data->sdData);
+				instance.PushTarget(data->hdData);
+
+				instance.ForwardTransmit();
+				instance.BackwardTransmit();
+
+				instance.FeedBack();
+
+				if (i % batchSize == 0)
+				{
+					network.computeAverage(batchSize);
+					network.UpdateWeights();
+					network.ClearSum();
+
+					if (i / batchSize % 15 == 0)
+						DisplayProgress((float)i / datasets.size());
+				}
+			}
+
+			instance.FreeData();
 		}
 
 		std::atomic<double> totalLoss = 0.0;
 
-		std::cout << "Calculating avg loss..." << std::endl;
+		std::cout << std::endl << "Calculating avg loss..." << std::endl;
 
 		std::vector<Network::Connectivity::FullConnNetworkInstance*> instances;
 		for (int i = 0; i < omp_get_max_threads(); i++)

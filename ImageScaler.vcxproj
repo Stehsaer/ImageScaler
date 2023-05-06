@@ -157,6 +157,7 @@
     <ClCompile Include="network\NetworkStructure.cpp" />
     <ClCompile Include="network\NetworkTrain.cpp" />
     <ClCompile Include="network\ProgressTimer.cpp" />
+    <ClCompile Include="network\VectorAccelator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Image.h" />

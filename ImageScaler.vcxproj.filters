@@ -48,6 +48,9 @@
     <ClCompile Include="network\FileHelper.cpp">
       <Filter>Network</Filter>
     </ClCompile>
+    <ClCompile Include="network\VectorAccelator.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Image.h">

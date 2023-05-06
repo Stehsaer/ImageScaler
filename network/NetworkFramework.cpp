@@ -124,18 +124,9 @@ void FullConnNetwork::ForwardTransmitLayer(NeuronLayer& obj, NeuronLayer& prev)
 {
 	for (int i = 0; i < obj.neuronCount; i++)
 	{
-		float sum = 0.0;
+		obj.value[i] = VectorAccelator::Dot(obj[i], prev.value, obj.prevCount);
 
-		float_n* weights = obj[i];
-		float_n* value = prev.value;
-
-#pragma omp simd reduction(+:sum)
-		for (int j = 0; j < obj.prevCount; j++)
-		{
-			sum += value[j] * weights[j];
-		}
-
-		obj.value[i] = sum + obj.bias;
+		obj.value[i] += obj.bias;
 		obj.value[i] = (*ForwardActive)(obj.value[i] / (float_n)obj.prevCount);
 	}
 }
@@ -279,6 +270,14 @@ void FullConnNetwork::computeAverage(float_n count)
 		outLayer.value[i] /= count;
 		outLayer.error[i] /= count;
 	}
+}
+
+void Network::Connectivity::FullConnNetwork::ClearSum()
+{
+	inLayer.ClearValues();
+	outLayer.ClearValues();
+	for (auto& item : hiddenLayerList)
+		item.ClearValues();
 }
 
 void FullConnNetwork::UpdateWeights()
@@ -441,7 +440,7 @@ void Network::Connectivity::FullConnNetworkInstance::BackwardTransmit()
 	else
 		for (int i = 0; i < outLayer.neuronCount; i++)
 		{
-			outLayer.error[i] = (*source->BackwardActive)(target[i] - outLayer.value[i]);
+			outLayer.error[i] = target[i] - outLayer.value[i];
 		}
 
 	for (int i = hiddenLayerList.size() - 1; i >= 0; i--)
@@ -452,6 +451,7 @@ void Network::Connectivity::FullConnNetworkInstance::BackwardTransmit()
 
 void Network::Connectivity::FullConnNetworkInstance::FeedBack()
 {
+	inLayer.FeedBack();
 	outLayer.FeedBack();
 	for (auto& item : hiddenLayerList)
 		item.FeedBack();

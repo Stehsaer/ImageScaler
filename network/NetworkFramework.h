@@ -78,6 +78,7 @@ namespace Network
 			void BackwardTransmitLayer(NeuronLayerInstance& obj, NeuronLayerInstance& last);
 
 			void computeAverage(float_n count);
+			void ClearSum();
 
 			void TrainBatched(NetworkDataSet& dataset, int batchSize, float_n learningRate, std::function<void(int, int)> callback = [](int, int) {});
 			void TrainBatched(std::vector<ImageDataset*>& dataset, int batchSize, float_n learningRate, std::function<void(int, int)> callback = [](int, int) {});

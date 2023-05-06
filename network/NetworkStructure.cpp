@@ -11,6 +11,8 @@ Network::NeuronLayer::NeuronLayer(int neuronCount, int prevCount)
 	value = new float_n[neuronCount];
 	error = new float_n[neuronCount];
 
+	ClearValues();
+
 	bias = 0.0;
 
 	for (int i = 0; i < neuronCount; i++)
