@@ -240,7 +240,7 @@ void Scale()
 					nwk.inLayer.value[_y * coreSize + _x] = yLayer.Get(x / 2 + _x, y / 2 + _y);
 				}
 
-			network.ForwardTransmit(nwk.inLayer, nwk.outLayer, nwk.hiddenLayerList);
+			nwk.ForwardTransmit();
 
 			for (int _x = 0; _x < coreSize; _x++)
 			{
@@ -257,7 +257,7 @@ void Scale()
 					nwk.inLayer.value[_y * coreSize + _x] = uLayer.Get(x / 2 + _x, y / 2 + _y) + 0.5;
 				}
 
-			network.ForwardTransmit(nwk.inLayer, nwk.outLayer, nwk.hiddenLayerList);
+			nwk.ForwardTransmit();
 
 			for (int _x = 0; _x < coreSize; _x++)
 			{
@@ -274,7 +274,7 @@ void Scale()
 					nwk.inLayer.value[_y * coreSize + _x] = vLayer.Get(x / 2 + _x, y / 2 + _y) + 0.5;
 				}
 
-			network.ForwardTransmit(nwk.inLayer, nwk.outLayer, nwk.hiddenLayerList);
+			nwk.ForwardTransmit();
 
 			for (int _x = 0; _x < coreSize; _x++)
 			{

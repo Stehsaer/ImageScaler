@@ -139,10 +139,6 @@ ImageDataset::ImageDataset(ImageLayer& imageLayer, int x_in, int y_in, int size)
 		for (int y = 0; y < size; y++)
 		{
 			sdData[y * size + x] = imageLayer.Get(x_in + x * 2, y_in + y * 2);
-			sdData[y * size + x] += imageLayer.Get(x_in + x * 2 + 1, y_in + y * 2);
-			sdData[y * size + x] += imageLayer.Get(x_in + x * 2, y_in + y * 2 + 1);
-			sdData[y * size + x] += imageLayer.Get(x_in + x * 2 + 1, y_in + y * 2 + 1);
-			sdData[y * size + x] /= 4;
 		}
 }
 
