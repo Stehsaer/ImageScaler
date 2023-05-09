@@ -3,7 +3,7 @@
 #include "FileHelper.h"
 
 #include <format>
-#include <json/json.h>
+#include "../jsoncpp/json.h"
 
 using namespace Network;
 using FCNetwork = Network::Connectivity::FullConnNetwork;
